@@ -1,4 +1,4 @@
-# EUKARYOME <img src='assets/EUKARYOME_Logo.png' align="right" height="200" />
+# EUKARYOME <img src='assets/EUKARYOME_Logo.png' align="right" height="80" />
 
 Accurate taxonomic identification of organisms is one of the cornerstones of biology and its many subdisciplines, 
 including ecology, biogeography, phylogenetics, and conservation biology. 
