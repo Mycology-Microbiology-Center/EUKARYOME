@@ -22,7 +22,7 @@ excel_file_path = 'path/to/your/excel/file.xlsx'
 fasta_file_path = 'path/to/your/new/output/fasta/file.fasta'
 excel_to_new_fasta_format(excel_file_path, fasta_file_path)
 
-
+###Generating the TSV file
 def excel_to_qiime2_tsv(excel_file_path, tsv_file_path):
     """
     Convert an Excel file to a TSV file compatible with QIIME2's FeatureData[Taxonomy] format.
