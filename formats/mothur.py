@@ -1,26 +1,40 @@
 import pandas as pd
 
-def excel_to_fasta_and_tax(excel_file_path, fasta_file_path, tax_file_path):
-    # Step 1: Read the Excel file
-    df = pd.read_excel(excel_file_path)
+def clean_sequence(sequence):
+    allowed_chars = set('ACTG')
+    return ''.join(c.upper() for c in sequence if c.upper() in allowed_chars)
+
+def format_sequence(seq, line_length=80):
+    return '\n'.join(seq[i:i+line_length] for i in range(0, len(seq), line_length))
+
+def generate_mothur_files(excel_file_path, fasta_file_path, tax_file_path, chunk_size=5000):
+    # Convert Excel to temporary CSV for chunked reading
+    temp_csv_path = 'temp_chunked_file.csv'
+    pd.read_excel(excel_file_path).to_csv(temp_csv_path, index=False)
     
-    # Step 2: Generate FASTA and Taxonomic content
-    fasta_content = ""
-    tax_content = ""
-    for index, row in df.iterrows():
-        fasta_header = f"{row['acc_new']}    k__{row['kgd']};p__{row['ph']};c__{row['c']};o__{row['o']};f__{row['f']};g__{row['g']};s__{row['s']}"
-        tax_line = f"{row['acc_new']}\tk__{row['kgd']};p__{row['ph']};c__{row['c']};o__{row['o']};f__{row['f']};g__{row['g']};s__{row['s']};"
-        sequence = row['seq']
-        
-        fasta_content += f">{fasta_header}\n{sequence}\n"
-        tax_content += f"{tax_line}\n"
-        
-    # Step 3: Write to new files
-    with open(fasta_file_path, 'w') as f:
-        f.write(fasta_content)
+    # Initialize output files
+    with open(fasta_file_path, 'w') as f_fasta, open(tax_file_path, 'w') as f_tax:
+        pass
     
-    with open(tax_file_path, 'w') as f:
-        f.write(tax_content)
+    # Read and process CSV file in chunks
+    for chunk in pd.read_csv(temp_csv_path, chunksize=chunk_size):
+        # Clean sequences
+        chunk['sequence'] = chunk['sequence'].apply(clean_sequence)
+        
+        # Generate FASTA and tax data for this chunk
+        fasta_data = []
+        tax_data = []
+        for idx, row in chunk.iterrows():
+            formatted_seq = format_sequence(row['sequence'])
+            fasta_data.append(f">{row['acc_new']}\n{formatted_seq}")
+            taxon = '\t'.join([f"{row['acc_new']}", ';'.join([f"{k}__{('unclassified' if v == '.' else v)}" 
+                                                               for k, v in row[['k', 'p', 'c', 'o', 'f', 'g', 's']].items()]) + ';'])
+            tax_data.append(taxon)
+        
+        # Write this chunk's data to FASTA and tax files
+        with open(fasta_file_path, 'a') as f_fasta, open(tax_file_path, 'a') as f_tax:
+            f_fasta.write('\n'.join(fasta_data) + '\n')
+            f_tax.write('\n'.join(tax_data) + '\n')
 
 # Usage
 excel_file_path = 'path/to/your/excel/file.xlsx'
