@@ -20,15 +20,24 @@ def generate_blast_fasta(excel_file_path, fasta_file_path, chunk_size=5000):
         
         fasta_data = []
         for idx, row in chunk.iterrows():
-            # Dynamically build the header
-            header_elements = [f"{k}__{v}" for k, v in row.items() if k not in ['sequence', 'acc_new']]
-            header = f"{row.get('acc_new', 'unknown_acc')}|{'|'.join(header_elements)}|reps"
+            # Skip the first column (presumably 'acc_new' is the second column)
+            row_data = row.iloc[2:]  # Assuming 'acc_new' is at index 1
+            # Replace "." with "unclassified" in the header elements
+            header_elements = [
+                f"{k}__{'unclassified' if v == '.' else v}" 
+                for k, v in row_data.items() if k != 'sequence'
+            ]
+            header = f"{row['acc_new']}|{'|'.join(header_elements)}"
             fasta_data.append(f">{header}\n{row['sequence']}")
         
         # Write this chunk's data to FASTA file
         with open(fasta_file_path, 'a') as f_fasta:
             f_fasta.write('\n'.join(fasta_data) + '\n')
 
+    # Clean up the temporary CSV file
+    import os
+    os.remove(temp_csv_path)
+    
 # File Paths
 excel_file_path = 'path/to/your/excel/file.xlsx'
 fasta_file_path = 'path/to/your/new/output/fasta/file.fasta'
