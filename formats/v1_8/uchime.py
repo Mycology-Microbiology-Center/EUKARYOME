@@ -27,7 +27,7 @@ def process_fasta(input_file, output_file):
             # Write the transformed header and unwrapped sequence to the output file
             out_f.write(f">{new_header}\n{str(record.seq)}\n")
 
-# Specify the paths to your input and output FASTA files
-input_file = 'LSU.fasta'
-output_file = 'uchime_LSU.fasta'
+# Specify the paths to  input and output FASTA files
+input_file = 'input.fasta'
+output_file = 'uchime_input.fasta'
 process_fasta(input_file, output_file)
