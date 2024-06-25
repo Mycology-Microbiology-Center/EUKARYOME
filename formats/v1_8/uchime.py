@@ -1,4 +1,6 @@
 from Bio import SeqIO
+import os
+import subprocess
 
 def transform_header(header):
     # Split the header on semicolons and remove the last element, typically "unused"
@@ -26,8 +28,18 @@ def process_fasta(input_file, output_file):
             new_header = transform_header(record.description)
             # Write the transformed header and unwrapped sequence to the output file
             out_f.write(f">{new_header}\n{str(record.seq)}\n")
+    
+    # Use seqkit to ensure proper formatting (sequence in one line)
+    temp_filepath = 'temp.fasta'
+    subprocess.run(["seqkit", "seq", "-u", output_file, "-o", temp_filepath])
+    subprocess.run(["seqkit", "seq", "-w", "0", temp_filepath, "-o", output_file])
+    os.remove(temp_filepath)
 
-# Specify the paths to  input and output FASTA files
-input_file = 'input.fasta'
-output_file = 'uchime_input.fasta'
-process_fasta(input_file, output_file)
+# List of FASTA filenames in the directory to process
+fasta_files = ['ITS.fasta', 'LSU.fasta', 'SSU.fasta', 'longread.fasta']
+
+for fasta_file in fasta_files:
+    base_name = os.path.splitext(fasta_file)[0]
+    output_file = f'General_EUK_{base_name}_v1.8.fasta'
+    process_fasta(fasta_file, output_file)
+    print(f"Processed {fasta_file}: generated {output_file}")
