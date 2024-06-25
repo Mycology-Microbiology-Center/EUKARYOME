@@ -8,7 +8,7 @@ def generate_qiime2_files(input_fasta, output_fasta, output_tsv):
         # Prepare the TSV writer
         tsv_writer = csv.writer(tsv_file, delimiter='\t')
         # Write the header of the TSV file
-        tsv_writer.writerow(["Feature ID", "Taxonomy"])
+        tsv_writer.writerow(["Feature ID", "Taxon"])
         
         for record in SeqIO.parse(input_fasta, 'fasta'):
             # Extract the ID and taxonomy from the record description
