@@ -3,7 +3,7 @@ import subprocess
 from collections import defaultdict
 import pandas as pd
 
-def remove_hyphens_from_fasta(input_dir, output_dir, report_dir):
+def remove_hyphens_and_duplicates(input_dir, output_dir, report_dir):
     # Ensure the output and report directories exist
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -11,7 +11,7 @@ def remove_hyphens_from_fasta(input_dir, output_dir, report_dir):
         os.makedirs(report_dir)
 
     # Dictionary to track headers and check uniqueness
-    headers = defaultdict(lambda: {'count': 0, 'lines': []})
+    headers = defaultdict(lambda: {'count': 0, 'lines': [], 'sequences': []})
     unique_headers = True
     sequence_without_header = False
 
@@ -35,7 +35,9 @@ def remove_hyphens_from_fasta(input_dir, output_dir, report_dir):
                         current_header = line.strip()
                         headers[(filename, current_header)]['count'] += 1
                         headers[(filename, current_header)]['lines'].append(line_number)
-                        outfile.write(current_header + '\n')
+                        if current_header in headers[(filename, current_header)]['sequences']:
+                            continue
+                        headers[(filename, current_header)]['sequences'].append('')
                     else:
                         if current_header is None:
                             sequence_without_header = True
@@ -43,7 +45,10 @@ def remove_hyphens_from_fasta(input_dir, output_dir, report_dir):
                                 seq_no_header_file.write(f"{filename}: {line}")
                         else:
                             sequence = line.replace('-', '').strip()
-                            outfile.write(sequence + '\n')
+                            if sequence in headers[(filename, current_header)]['sequences']:
+                                continue
+                            headers[(filename, current_header)]['sequences'][-1] += sequence
+                            outfile.write(current_header + '\n' + sequence + '\n')
 
             # Clean up temporary file
             os.remove(temp_filepath)
@@ -69,11 +74,11 @@ def remove_hyphens_from_fasta(input_dir, output_dir, report_dir):
     return unique_headers, sequence_without_header
 
 # Usage
-input_directory = '.'  # Path to the directory containing input FASTA files
+input_directory = './original/duplicate_removed'  # Path to the directory containing input FASTA files
 output_directory = './filtered_fasta'  # Path to the directory to save modified FASTA files
 report_directory = './filtered_fasta'  # Path to the directory to save report files
 
-unique_headers, sequence_without_header = remove_hyphens_from_fasta(input_directory, output_directory, report_directory)
+unique_headers, sequence_without_header = remove_hyphens_and_duplicates(input_directory, output_directory, report_directory)
 
 # Output the status
 if unique_headers:
