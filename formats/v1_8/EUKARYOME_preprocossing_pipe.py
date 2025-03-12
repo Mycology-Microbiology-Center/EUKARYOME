@@ -1,5 +1,5 @@
 """
-EUKARYOME  pre-processing Pipeline
+EUKARYOME correction Processing Pipeline
 
 This script is designed to process FASTA files through multiple stages to ensure data quality and consistency.
 The pipeline includes the following stages:
@@ -125,12 +125,13 @@ def preprocess_fasta_files(input_dir):
 
 def remove_duplicates(input_fasta, output_fasta):
     """
-    Remove duplicate sequences from a FASTA file based on the taxonomic identifier (first field of the header)
-    and the sequence string. Cleans header lines by removing double quotes and hyphens.
+    Remove duplicate sequences from a FASTA file based on the taxonomic identifier (first field of the header).
+    When duplicates are found, retains only the longest sequence.
+    Cleans header lines by removing double quotes and hyphens.
     Uses 'latin-1' encoding throughout and handles non-ASCII characters properly.
     """
-    unique_sequences = {}  # Use plain dict instead of OrderedDict to simplify
-    sequence_order = []    # Maintain sequence order separately
+    unique_sequences = {}  # Will hold {tax_id: (header, sequence)} with longest sequence for each tax_id
+    sequence_order = []    # Maintains the order of unique taxonomic IDs for output
     
     try:
         # Read the file manually to ensure full control over encoding
@@ -150,14 +151,21 @@ def remove_duplicates(input_fasta, output_fasta):
                         # Extract taxonomic ID from the cleaned header
                         cleaned_header = current_header.strip('"')
                         tax_id = cleaned_header.split(';')[0].lstrip('>')
-                        unique_key = (tax_id, clean_seq)
                         
-                        if unique_key not in unique_sequences:
-                            unique_sequences[unique_key] = (cleaned_header, clean_seq)
-                            sequence_order.append(unique_key)
+                        # Check if we already have this tax_id
+                        if tax_id in unique_sequences:
+                            # Compare sequence lengths and keep the longer one
+                            existing_seq = unique_sequences[tax_id][1]
+                            if len(clean_seq) > len(existing_seq):
+                                # This sequence is longer, replace the existing one
+                                unique_sequences[tax_id] = (cleaned_header, clean_seq)
+                                logging.info(f"Replaced shorter sequence for {tax_id} with a longer one ({len(existing_seq)} -> {len(clean_seq)} bases)")
+                        else:
+                            # First time seeing this tax_id
+                            unique_sequences[tax_id] = (cleaned_header, clean_seq)
+                            sequence_order.append(tax_id)
                     
                     # Start new sequence, clean header by removing quotes
-                    # Ensure the > character is preserved if it was inside quotes
                     if line.startswith('">'):
                         line = line.strip('"')
                     current_header = line.replace('"', '')
@@ -170,11 +178,15 @@ def remove_duplicates(input_fasta, output_fasta):
             if current_header is not None and current_seq:
                 clean_seq = current_seq.replace('-', '')
                 tax_id = current_header.split(';')[0].lstrip('>')
-                unique_key = (tax_id, clean_seq)
                 
-                if unique_key not in unique_sequences:
-                    unique_sequences[unique_key] = (current_header, clean_seq)
-                    sequence_order.append(unique_key)
+                if tax_id in unique_sequences:
+                    existing_seq = unique_sequences[tax_id][1]
+                    if len(clean_seq) > len(existing_seq):
+                        unique_sequences[tax_id] = (current_header, clean_seq)
+                        logging.info(f"Replaced shorter sequence for {tax_id} with a longer one ({len(existing_seq)} -> {len(clean_seq)} bases)")
+                else:
+                    unique_sequences[tax_id] = (current_header, clean_seq)
+                    sequence_order.append(tax_id)
         
     except Exception as e:
         logging.error(f"Error reading {input_fasta}: {str(e)}")
@@ -191,8 +203,8 @@ def remove_duplicates(input_fasta, output_fasta):
     # Write sequences directly to file without using BioPython
     try:
         with open(output_fasta, 'w', encoding="latin-1", errors='replace') as out_f:
-            for key in sequence_order:
-                header, sequence = unique_sequences[key]
+            for tax_id in sequence_order:
+                header, sequence = unique_sequences[tax_id]
                 out_f.write(f"{header}\n{sequence}\n")
     except Exception as e:
         logging.error(f"Error writing to {output_fasta}: {str(e)}")
@@ -396,7 +408,7 @@ def main():
     preprocess_fasta_files(converted_dir)
 
     # Stage 2: Remove duplicate sequences.
-    logging.info("Starting duplicate removal...")
+    logging.info("Starting duplicate removal (keeping longest sequence)...")
     process_duplicates_in_directory(converted_dir, duplicate_removed_dir, num_processes=8)
 
     # Stage 3: Remove hyphens, clean headers, and check duplicate headers.
