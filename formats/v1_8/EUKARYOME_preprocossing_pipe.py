@@ -1,17 +1,17 @@
 """
-EUKARYOME correction Processing Pipeline
+EUKARYOME pre-processing Pipeline
 
-This script is designed to process FASTA files through multiple stages to ensure data quality and consistency.
+This script processes FASTA files through multiple stages to ensure data quality and consistency.
 The pipeline includes the following stages:
 
 1. Conversion: Converts .txt files to .fasta format using 'latin-1' encoding to handle unusual characters.
 2. Preprocessing: Fixes common formatting issues in FASTA files, such as removing quotation marks from headers.
-3. Duplicate Removal: Removes duplicate sequences based on taxonomic identifiers and sequence strings.
+3. Duplicate Removal: Removes duplicate sequences based on taxonomic identifiers and sequence strings, and the longest one will remain.
 4. Hyphen Removal and Header Check: Removes hyphens from sequences, cleans headers, and checks for duplicate headers.
 
 Outputs:
 - Converted FASTA files in the 'converted_fasta' directory.
-- FASTA files with duplicates removed in the 'duplicate_removed' directory.
+- FASTA files with duplicates were removed from the 'duplicate_removed' directory.
 - Final processed FASTA files in the 'filtered_fasta' directory.
 - Reports on repetitive headers and sequences without headers in the 'filtered_fasta' directory.
 
