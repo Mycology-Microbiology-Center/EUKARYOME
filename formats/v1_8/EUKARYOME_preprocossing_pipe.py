@@ -1,13 +1,13 @@
 """
 EUKARYOME Pre-Processing Pipeline - Revised with Cleanup, Multiprocessing, Duplicate Elimination,
-Uppercase Sequence Output, and Final Header Standardization
+Uppercase Sequence Output, Final Header Standardization, and Nucleotide Filtering
 
-This pipeline converts TXT files to FASTA format, cleans headers (retaining only the accession ID and defined taxonomic ranks), and removes hyphens.
-It then generates duplicate reports based on cleaned full headers and accession IDs.
-After reporting, it eliminates duplicates by comparing sequence lengths—keeping only the longest sequence among duplicates,
-and converting sequences to uppercase. In the final step, the headers in the deduplicated FASTA files are standardized so that only
-the accession ID plus 7 taxonomic ranks remain (with a trailing semicolon), removing any extra information.
-A cleanup routine at the start removes previously generated files and states to ensure a fresh run.
+This pipeline converts TXT files to FASTA format, cleans headers (retaining only the accession ID and defined taxonomic ranks), 
+removes hyphens, and filters sequences to include only valid nucleotide characters. It then generates duplicate reports 
+based on cleaned full headers and accession IDs. After reporting, it eliminates duplicates by comparing sequence lengths—keeping only 
+the longest sequence among duplicates (with sequences converted to uppercase). Finally, headers in the deduplicated FASTA files 
+are standardized to retain only the accession ID plus 7 taxonomic fields (with a trailing semicolon). A cleanup routine removes 
+previously generated files and state to ensure a fresh run.
 """
 
 import os
@@ -21,6 +21,7 @@ import unicodedata
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
+import re
 
 # ------------------------------
 # Global Configuration
@@ -94,6 +95,19 @@ def update_state(state, filename, stage, success, error_msg=""):
     else:
         state[filename]["errors"].pop(stage, None)
     save_state(state)
+
+# ------------------------------
+# Nucleotide Filtering Function
+# ------------------------------
+
+def filter_nucleotide_sequence(seq):
+    """
+    Filter a nucleotide sequence by removing any characters not in the allowed set.
+    Allowed nucleotides: A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V.
+    """
+    VALID_NUCLEOTIDES = "ACGTNRYSWKMBDHV"
+    seq = seq.upper()
+    return re.sub(f'[^{VALID_NUCLEOTIDES}]', '', seq)
 
 # ------------------------------
 # Header Cleaning Functions
@@ -310,7 +324,7 @@ def eliminate_duplicates_in_file(input_filepath, output_filepath):
     """
     Eliminate duplicate sequences from a FASTA file by keeping only the longest sequence 
     for each accession ID (and hence full header). Reads sequences, compares lengths, 
-    removes hyphens, converts to uppercase, and writes unique entries.
+    removes hyphens, filters out invalid nucleotide characters, converts to uppercase, and writes unique entries.
     """
     sequences = {}  # key: accession id, value: (header, sequence)
     order = []      # maintain order of first appearance
@@ -326,7 +340,8 @@ def eliminate_duplicates_in_file(input_filepath, output_filepath):
                 if line.startswith('>'):
                     # Process previous sequence
                     if current_header is not None:
-                        seq_str = "".join(current_seq).replace('-', '').upper()
+                        # Remove hyphens, filter invalid characters, and convert to uppercase
+                        seq_str = filter_nucleotide_sequence("".join(current_seq).replace('-', ''))
                         acc_id = extract_accession_id(current_header)
                         if acc_id:
                             if acc_id in sequences:
@@ -341,7 +356,7 @@ def eliminate_duplicates_in_file(input_filepath, output_filepath):
                     current_seq.append(line)
             # Process final sequence
             if current_header is not None:
-                seq_str = "".join(current_seq).replace('-', '').upper()
+                seq_str = filter_nucleotide_sequence("".join(current_seq).replace('-', ''))
                 acc_id = extract_accession_id(current_header)
                 if acc_id:
                     if acc_id in sequences:
@@ -413,7 +428,7 @@ def main():
       3. Concurrently remove hyphens.
       4. Generate duplicate reports based on cleaned headers and accession IDs.
       5. Concurrently eliminate duplicates by retaining only the longest sequence.
-      6. Final step: Standardize headers in the deduplicated FASTA files so that only the accession ID plus 7 taxonomic fields remain.
+      6. Final step - Standardize headers in the deduplicated FASTA files so that only the accession ID plus 7 taxonomic fields remain.
       7. Cleanup previous generated files before running the pipeline.
     """
     # Directory configuration
